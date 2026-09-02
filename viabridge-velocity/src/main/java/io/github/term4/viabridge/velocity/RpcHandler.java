@@ -103,11 +103,21 @@ final class RpcHandler {
         return out.toString();
     }
 
+    // Velocity speaks each client's own version on the frontend, so that Via connection is a passthrough with no
+    // pipeline state; the translation - and the trackers its handlers read - lives on the backend link, Via's
+    // client-side connection. A clientbound raw send there fires up the proxy's backend pipeline toward the player.
     private static UserConnection resolveFrontendConnection(Player player) {
         var manager = Via.getManager().getConnectionManager();
         UserConnection front = manager.getServerConnection(player.getUniqueId());
+        UserConnection back = manager.getClientConnection(player.getUniqueId());
+        if (back != null && translates(back)) return back;
         if (front != null) return front;
-        return manager.getClientConnection(player.getUniqueId());
+        return back;
+    }
+
+    private static boolean translates(UserConnection connection) {
+        var info = connection.getProtocolInfo();
+        return info != null && info.protocolVersion() != null && !info.protocolVersion().equals(info.serverProtocolVersion());
     }
 
     private record DispatchResult(byte status, String message, byte[] body) {
