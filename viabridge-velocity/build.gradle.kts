@@ -12,6 +12,7 @@ dependencies {
     compileOnly("com.velocitypowered:velocity-api:4.0.0-SNAPSHOT")
     compileOnly("com.viaversion:viaversion-api:5.11.0")
     compileOnly("com.viaversion:viaversion-common:5.11.0")
+    compileOnly("com.viaversion:nbt:5.0.0")
     compileOnly("io.netty:netty-buffer:4.2.16.Final")
     annotationProcessor("com.velocitypowered:velocity-api:4.0.0-SNAPSHOT")
 }

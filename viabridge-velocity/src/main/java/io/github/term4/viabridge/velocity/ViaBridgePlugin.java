@@ -1,5 +1,6 @@
 package io.github.term4.viabridge.velocity;
 
+import com.viaversion.viaversion.api.Via;
 import com.google.inject.Inject;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
@@ -20,7 +21,8 @@ import java.nio.file.Path;
         description = "Exposes ViaVersion APIs to trusted backend servers (e.g. Minestom) over plugin messages",
         authors = {"Term4"},
         dependencies = {
-                @Dependency(id = "viaversion")
+                @Dependency(id = "viaversion"),
+                @Dependency(id = "viarewind", optional = true) // its enable listener registers the protocol we append to
         }
 )
 public final class ViaBridgePlugin {
@@ -43,5 +45,17 @@ public final class ViaBridgePlugin {
         proxy.getChannelRegistrar().register(CHANNEL);
         proxy.getEventManager().register(this, new RpcListener(logger));
         logger.info("ViaBridge ready on channel {}", RpcChannel.ID);
+        // Via enable listeners run in registration order; the optional dependency puts ViaRewind's first
+        Via.getManager().addEnableListener(() -> armLegacyCount(0));
+    }
+
+    private void armLegacyCount(int attempt) {
+        if (LegacyCountRewrite.arm(logger)) return;
+        if (attempt >= 10) {
+            logger.warn("ViaBridge: ViaRewind's 1.9->1.8 protocol never registered - legacy count rewrite off");
+            return;
+        }
+        proxy.getScheduler().buildTask(this, () -> armLegacyCount(attempt + 1))
+                .delay(java.time.Duration.ofSeconds(1)).schedule();
     }
 }

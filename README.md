@@ -61,3 +61,9 @@ Jar bundles `protocol`. Deploy to Velocity `plugins/`.
 
 - Velocity + ViaVersion (+ ViaBackwards/ViaRewind as needed)
 - Trusted backend only (standard Velocity backend plugin messages)
+
+## Legacy count rewrite
+
+A 1.8 client draws any stack count but 1, 0 included; the modern wire has no 0 (it is the empty slot). An item whose
+custom data carries `viabridge:legacy_count` (a number) reaches a 1.8 client with that count, patched inside ViaRewind's
+own slot and window-contents translation, so resends never flash. Needs ViaRewind; other clients see the modern count.
