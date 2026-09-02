@@ -7,6 +7,7 @@ java {
 }
 
 dependencies {
+    compileOnly("io.netty:netty-transport:4.1.115.Final") // UserConnection.getChannel()
     implementation(project(":protocol"))
     compileOnly("com.velocitypowered:velocity-api:4.0.0-SNAPSHOT")
     compileOnly("com.viaversion:viaversion-api:5.11.0")

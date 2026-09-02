@@ -1,5 +1,8 @@
 package io.github.term4.viabridge.velocity;
 
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Callable;
+import io.netty.channel.Channel;
 import com.velocitypowered.api.proxy.Player;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
@@ -64,14 +67,40 @@ final class RpcHandler {
                 return errorResponse(request, "no Via frontend UserConnection for " + player.getUsername());
             }
 
-            DispatchResult result = dispatch(connection, spec, direction, mode);
+            DispatchResult result = onEventLoop(connection, () -> dispatch(connection, spec, direction, mode));
             if (request.requestId() == 0) return null;
             return statusResponse(request, result.status(), result.message(), result.body());
         } catch (Throwable t) {
-            logger.error("ViaBridge: opcode {} failed for {}", request.opcode(), player.getUsername(), t);
+            UserConnection connection = resolveFrontendConnection(player);
+            logger.error("ViaBridge: opcode {} failed for {} ({})", request.opcode(), player.getUsername(), describe(connection), t);
             if (request.requestId() == 0) return null;
-            return errorResponse(request, rootMessage(t));
+            return errorResponse(request, rootMessage(t) + " [" + describe(connection) + "]");
         }
+    }
+
+    // Via's per-connection state is the channel's; a pipeline run off its event loop races the live one
+    private static DispatchResult onEventLoop(UserConnection connection, Callable<DispatchResult> work) throws Exception {
+        Channel channel = connection.getChannel();
+        if (channel == null || channel.eventLoop().inEventLoop()) return work.call();
+        return channel.eventLoop().submit(work).get(2, TimeUnit.SECONDS);
+    }
+
+    // what the failure saw: which side, which versions, which protocols, which state - the report a fix needs
+    private static String describe(UserConnection connection) {
+        if (connection == null) return "no connection";
+        StringBuilder out = new StringBuilder();
+        out.append(connection.isClientSide() ? "client-side" : "server-side");
+        var info = connection.getProtocolInfo();
+        if (info != null) {
+            out.append(" client=").append(info.protocolVersion()).append(" server=").append(info.serverProtocolVersion());
+            if (info.getPipeline() != null) {
+                out.append(" pipes=");
+                for (var pipe : info.getPipeline().pipes()) out.append(pipe.getClass().getSimpleName()).append(',');
+            }
+        }
+        out.append(" stored=");
+        for (Class<?> stored : connection.getStoredObjects().keySet()) out.append(stored.getSimpleName()).append(',');
+        return out.toString();
     }
 
     private static UserConnection resolveFrontendConnection(Player player) {
